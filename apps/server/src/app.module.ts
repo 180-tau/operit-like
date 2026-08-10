@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './modules/auth/auth.module.js';
+import { LlmModule } from './modules/llm/llm.module.js';
 
 @Module({
   imports: [
@@ -17,8 +19,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         synchronize: process.env.NODE_ENV !== 'production',
       }),
     }),
-    // Feature modules (to be added per phase):
-    // AuthModule · ConversationModule · CharacterModule · AgentModule · ToolModule
+    AuthModule,
+    LlmModule,
+    // ConversationModule · CharacterModule · AgentModule · ToolModule (per phase)
   ],
 })
 export class AppModule {}
