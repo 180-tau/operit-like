@@ -87,9 +87,9 @@ export class ChatService {
       '接下来将开发：工具系统、角色卡引擎、分段分句回复。',
     ];
     yield { type: 'typing', state: 'start' };
-    for (let i = 0; i < segments.length; i++) {
-      yield { type: 'segment', index: i, text: segments[i], delayMs: 600 };
-      for (const ch of segments[i]) {
+    for (const seg of segments) {
+      yield { type: 'segment', index: segments.indexOf(seg), text: seg, delayMs: 600 };
+      for (const ch of seg) {
         yield { type: 'token', delta: ch };
       }
     }
