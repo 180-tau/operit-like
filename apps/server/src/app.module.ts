@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { LlmModule } from './modules/llm/llm.module.js';
+import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
   imports: [
@@ -23,5 +24,6 @@ import { LlmModule } from './modules/llm/llm.module.js';
     LlmModule,
     // ConversationModule · CharacterModule · AgentModule · ToolModule (per phase)
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
