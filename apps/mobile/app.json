@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Operit-like",
+    "slug": "operit-like",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.operitlike.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.operitlike.app",
+      "supportsTablet": true
+    },
+    "plugins": [],
+    "extra": {
+      "apiUrl": "http://localhost:3000/api"
+    }
+  }
+}
