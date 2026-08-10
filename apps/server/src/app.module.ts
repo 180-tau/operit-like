@@ -6,6 +6,7 @@ import { LlmModule } from './modules/llm/llm.module.js';
 import { ConversationModule } from './modules/conversation/conversation.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { CharacterModule } from './modules/character/character.module.js';
+import { MemoryModule } from './modules/memory/memory.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
@@ -28,7 +29,8 @@ import { HealthController } from './modules/health/health.controller.js';
     ConversationModule,
     ChatModule,
     CharacterModule,
-    // AgentModule · ToolModule (per phase)
+    MemoryModule,
+    // ToolModule · AgentModule (per phase)
   ],
   controllers: [HealthController],
 })
