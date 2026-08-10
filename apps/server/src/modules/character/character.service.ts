@@ -16,7 +16,6 @@ export interface CreateCharacterInput {
   characterBook?: { keys: string[]; content: string; constant?: boolean }[];
 }
 
-/** Tavern AI / SillyTavern Character Card V2 payload. */
 export interface TavernCardV2 {
   spec: 'chara_card_v2';
   data: {
@@ -74,7 +73,6 @@ export class CharacterService {
     await this.cards.remove(card);
   }
 
-  /** Import from Tavern/SillyTavern Character Card V2 JSON. */
   async importFromTavern(userId: string, json: TavernCardV2): Promise<CharacterCard> {
     const d = json.data;
     const input: CreateCharacterInput = {
@@ -97,7 +95,6 @@ export class CharacterService {
     return this.create(userId, input);
   }
 
-  /** Export to Tavern/SillyTavern Character Card V2 JSON. */
   exportToTavern(card: CharacterCard): TavernCardV2 {
     return {
       spec: 'chara_card_v2',
@@ -116,7 +113,30 @@ export class CharacterService {
     };
   }
 
-  /** Build the system prompt for a character (assembled before chat). */
+  /** Update relationship state after an interaction (virtual companion). */
+  async updateRelationship(
+    userId: string,
+    id: string,
+    opts: { deltaIntimacy?: number; userMood?: string },
+  ): Promise<CharacterCard> {
+    const card = await this.get(userId, id);
+    const rel = card.relationship ?? { intimacy: 0, mood: 'neutral', interactionCount: 0 };
+    rel.intimacy = Math.max(0, Math.min(100, (rel.intimacy ?? 0) + (opts.deltaIntimacy ?? 0)));
+    rel.interactionCount = (rel.interactionCount ?? 0) + 1;
+    if (opts.userMood) rel.mood = opts.userMood;
+    card.relationship = rel;
+    return this.cards.save(card);
+  }
+
+  /** Simple mood detection from user text (positive/negative keywords). */
+  detectUserMood(text: string): 'happy' | 'sad' | 'neutral' {
+    const pos = /(开心|高兴|喜欢|爱你|好棒|太好了|开心|快乐|哈哈|耶|开心|兴奋|满足)/;
+    const neg = /(难过|伤心|生气|讨厌|烦|累|郁闷|哭|失落|失望|焦虑|压力)/;
+    if (pos.test(text)) return 'happy';
+    if (neg.test(text)) return 'sad';
+    return 'neutral';
+  }
+
   buildSystemPrompt(card: CharacterCard): string {
     const parts: string[] = [];
     if (card.systemPrompt) parts.push(card.systemPrompt);
@@ -126,6 +146,10 @@ export class CharacterService {
     if (card.scenario) parts.push(`Scenario:\n${card.scenario}`);
     if (card.mesExample) parts.push(`Example dialogue (use this style):\n${card.mesExample}`);
     if (card.postHistoryInstructions) parts.push(card.postHistoryInstructions);
+    const rel = card.relationship;
+    if (rel && rel.interactionCount > 0) {
+      parts.push(`Relationship state: intimacy=${rel.intimacy}/100, mood=${rel.mood}, interactions=${rel.interactionCount}. Reflect this in your tone.`);
+    }
     return parts.join('\n\n');
   }
 }
