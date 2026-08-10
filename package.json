@@ -1,0 +1,26 @@
+{
+  "name": "operit-like",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Operit-like AI assistant platform: Android-first, TS full-stack, character-card engine",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3"
+  }
+}
