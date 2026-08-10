@@ -15,10 +15,6 @@ export class ChatService {
     private readonly characters: CharacterService,
   ) {}
 
-  /**
-   * Stream a reply for the given user message.
-   * Supports character-bound conversations + segmented reply delivery.
-   */
   async *streamReply(userId: string, conversationId: string, content: string): AsyncGenerator<StreamEvent> {
     const conv = await this.conversations.get(userId, conversationId);
 
@@ -29,7 +25,6 @@ export class ChatService {
       content: m.content,
     }));
 
-    // Character card injection (Phase 3)
     let cardName = '';
     if (conv.characterCardId) {
       try {
@@ -53,11 +48,7 @@ export class ChatService {
       }
 
       if (!provider) {
-        const segments = [
-          '你好呀～👋 我是 Operit-like 助手。',
-          '当前处于**模拟模式**（未配置 LLM_API_KEY）。',
-          '配置模型后即可接入真实 AI 对话。',
-        ];
+        const segments = ['你好呀～👋 我是 Operit-like 助手。', '当前处于**模拟模式**（未配置 LLM_API_KEY）。', '配置模型后即可接入真实 AI 对话。'];
         yield { type: 'typing', state: 'start' };
         for (const seg of segments) {
           yield { type: 'segment', index: segments.indexOf(seg), text: seg, delayMs: 600 };
@@ -80,11 +71,12 @@ export class ChatService {
           }
         }
         replyContent = full.join('');
-        // Segmented delivery after full generation (human-like rhythm)
+        // Segmented delivery after full generation
         const plan = planSegments(replyContent);
-        for (let i = 0; i < plan.segments.length; i++) {
-          yield { type: 'segment', index: i, text: plan.segments[i], delayMs: plan.delaysMs[i] };
-        }
+        plan.segments.forEach((text, i) => {
+          const delay = plan.delaysMs[i] ?? 500;
+          this.emitSegment(yield, i, text, delay);
+        });
         yield { type: 'typing', state: 'end' };
         yield { type: 'done', usage: undefined };
       }
@@ -103,5 +95,9 @@ export class ChatService {
       }
       await this.conversations.touch(conversationId);
     }
+  }
+
+  private async emitSegment(yieldFn: (ev: StreamEvent) => unknown, index: number, text: string, delayMs: number): Promise<void> {
+    await yieldFn({ type: 'segment', index, text, delayMs });
   }
 }
