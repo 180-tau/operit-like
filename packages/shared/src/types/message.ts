@@ -19,7 +19,7 @@ export interface ChatMessage {
 
 /** SSE event envelope. */
 export type StreamEvent =
-  | { type: 'meta'; conversationId: string; messageId: string; model: string }
+  | { type: 'meta'; conversationId: string; messageId: string; model: string; character?: string }
   | { type: 'token'; delta: string }
   | { type: 'segment'; index: number; text: string; delayMs?: number }
   | { type: 'typing'; state: 'start' | 'end' }
