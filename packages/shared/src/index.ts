@@ -5,3 +5,4 @@ export * from './types/character-card.js';
 export * from './types/message.js';
 export * from './types/package.js';
 export * from './types/conversation.js';
+export * from './types/llm.js';
