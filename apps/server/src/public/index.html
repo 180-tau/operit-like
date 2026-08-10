@@ -10,24 +10,29 @@
   .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
   h1 { font-size: 20px; margin-bottom: 12px; color: #7dd3fc; }
   .card { background: #232343; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #3a3a5e; background: #1f1f3a; color: #eee; margin-bottom: 8px; font-size: 15px; }
+  input, textarea, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #3a3a5e; background: #1f1f3a; color: #eee; margin-bottom: 8px; font-size: 15px; }
+  textarea { min-height: 52px; resize: vertical; }
   button { padding: 10px 18px; border-radius: 8px; border: none; background: #4f46e5; color: #fff; font-size: 15px; cursor: pointer; }
   button.secondary { background: #2d2d55; }
+  button.pink { background: #db2777; }
   #authBox { display: block; }
   #appBox { display: none; }
   .row { display: flex; gap: 8px; }
   .row input { flex: 1; }
-  #convList { max-height: 120px; overflow-y: auto; margin-bottom: 8px; }
-  .conv-item { padding: 8px 10px; border-radius: 8px; background: #2a2a4e; margin-bottom: 4px; cursor: pointer; font-size: 14px; }
-  .conv-item.active { background: #4f46e5; }
-  #chatBox { height: 320px; overflow-y: auto; border: 1px solid #3a3a5e; border-radius: 8px; padding: 12px; margin-bottom: 8px; background: #1b1b33; }
+  #convList, #charList { max-height: 140px; overflow-y: auto; margin-bottom: 8px; }
+  .item { padding: 8px 10px; border-radius: 8px; background: #2a2a4e; margin-bottom: 4px; cursor: pointer; font-size: 14px; display:flex; justify-content:space-between; }
+  .item.active { background: #4f46e5; }
+  .item .del { color:#f87171; margin-left:8px; }
+  #chatBox { height: 300px; overflow-y: auto; border: 1px solid #3a3a5e; border-radius: 8px; padding: 12px; margin-bottom: 8px; background: #1b1b33; }
   .msg { margin-bottom: 8px; }
   .msg .who { font-size: 12px; color: #8b8bb3; }
   .msg.user .bubble { background: #4f46e5; }
   .msg.assistant .bubble { background: #2d2d55; }
+  .msg.assistant .who { color: #db2777; }
   .bubble { display: inline-block; padding: 8px 12px; border-radius: 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
   .status { font-size: 12px; color: #7dd3fc; min-height: 16px; margin-bottom: 8px; }
   .tip { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+  .section-title { font-size: 14px; color:#f0abfc; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -45,7 +50,22 @@
   </div>
   <div id="appBox">
     <div class="card">
-      <div class="row"><input id="convTitle" placeholder="会话标题" value="我的聊天"><button onclick="createConv()">新建会话</button></div>
+      <div class="section-title">💗 我的角色卡（虚拟恋人）</div>
+      <div id="charList"></div>
+      <div class="row">
+        <input id="charName" placeholder="角色名，如：小雅">
+        <input id="charPersona" placeholder="性格，如：温柔可爱、爱撒娇">
+      </div>
+      <input id="charDesc" placeholder="角色设定：18岁少女，我的青梅竹马…">
+      <button class="pink" onclick="createChar()">+ 创建角色卡</button>
+      <div class="tip">创建后点下方会话里的角色名即可绑定</div>
+    </div>
+    <div class="card">
+      <div class="section-title">💬 会话</div>
+      <div class="row">
+        <input id="convTitle" placeholder="会话标题" value="我的聊天">
+        <button onclick="createConv()">新建</button>
+      </div>
       <div id="convList"></div>
     </div>
     <div class="card">
@@ -60,6 +80,7 @@ const API = '';
 let TOKEN = localStorage.getItem('token') || '';
 let CID = localStorage.getItem('cid') || '';
 let streaming = false;
+let chars = [];
 const $ = id => document.getElementById(id);
 async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
@@ -69,13 +90,11 @@ async function api(path, opts = {}) {
 }
 function setStatus(el, txt) { $(el).textContent = txt; }
 async function register() {
-  setStatus('authStatus', '注册中…');
   const r = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username: $('username').value, password: $('password').value }) });
   if (r.token) { TOKEN = r.token; localStorage.setItem('token', TOKEN); enterApp(); }
-  else setStatus('authStatus', '注册失败: ' + (r.message || '账号可能已存在，试试登录'));
+  else setStatus('authStatus', '注册失败: ' + (r.message || '可能已存在，试试登录'));
 }
 async function login() {
-  setStatus('authStatus', '登录中…');
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: $('username').value, password: $('password').value }) });
   if (r.token) { TOKEN = r.token; localStorage.setItem('token', TOKEN); enterApp(); }
   else setStatus('authStatus', '登录失败: ' + (r.message || JSON.stringify(r)));
@@ -83,15 +102,35 @@ async function login() {
 async function enterApp() {
   $('authBox').style.display = 'none';
   $('appBox').style.display = 'block';
+  await loadChars();
   await loadConvs();
+}
+async function loadChars() {
+  chars = await api('/api/characters');
+  $('charList').innerHTML = '';
+  for (const c of chars) {
+    const d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<span>💗 ' + c.name + '</span>';
+    d.onclick = () => { $('charName').value = c.name; $('charPersona').value = c.personality; $('charDesc').value = c.description; };
+    $('charList').appendChild(d);
+  }
+}
+async function createChar() {
+  const r = await api('/api/characters', { method: 'POST', body: JSON.stringify({
+    name: $('charName').value, personality: $('charPersona').value, description: $('charDesc').value,
+    systemPrompt: 'You are ' + $('charName').value + '. Stay in character. Reply with short human-like sentences.',
+  }) });
+  if (r.id) { await loadChars(); setStatus('chatStatus', '角色「' + r.name + '」已创建'); }
 }
 async function loadConvs() {
   const convs = await api('/api/conversations');
   $('convList').innerHTML = '';
   for (const c of convs) {
     const d = document.createElement('div');
-    d.className = 'conv-item' + (c.id === CID ? ' active' : '');
-    d.textContent = c.title;
+    d.className = 'item' + (c.id === CID ? ' active' : '');
+    const charName = c.characterCardId ? (chars.find(x => x.id === c.characterCardId)?.name || '') : '';
+    d.innerHTML = '<span>' + c.title + (charName ? ' <span style="color:#f0abfc">· ' + charName + '</span>' : '') + '</span>';
     d.onclick = () => selectConv(c.id);
     $('convList').appendChild(d);
   }
@@ -100,7 +139,8 @@ async function loadConvs() {
   if (CID) await loadMessages(CID);
 }
 async function createConv() {
-  const r = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ title: $('convTitle').value }) });
+  const charId = chars.length ? (prompt('绑定角色卡 ID？留空则不绑定（可复制上方创建的角色）') || '') : '';
+  const r = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ title: $('convTitle').value, characterCardId: charId || undefined }) });
   CID = r.id; localStorage.setItem('cid', CID);
   await loadConvs();
 }
@@ -108,13 +148,13 @@ async function selectConv(id) { CID = id; localStorage.setItem('cid', CID); awai
 async function loadMessages(cid) {
   const msgs = await api('/api/conversations/' + cid + '/messages');
   $('chatBox').innerHTML = '';
-  for (const m of msgs) appendMsg(m.role, m.content);
+  for (const m of msgs) appendMsg(m.role, m.content, '');
   $('chatBox').scrollTop = $('chatBox').scrollHeight;
 }
-function appendMsg(role, text) {
+function appendMsg(role, text, who) {
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  div.innerHTML = '<div class="who">' + (role === 'user' ? '你' : 'AI') + '</div><div class="bubble"></div>';
+  div.innerHTML = '<div class="who">' + (role === 'user' ? '你' : (who || 'AI')) + '</div><div class="bubble"></div>';
   div.querySelector('.bubble').textContent = text;
   $('chatBox').appendChild(div);
   $('chatBox').scrollTop = $('chatBox').scrollHeight;
@@ -123,14 +163,15 @@ async function send() {
   const text = $('input').value.trim();
   if (!text || streaming || !CID) return;
   $('input').value = '';
-  appendMsg('user', text);
+  appendMsg('user', text, '');
   streaming = true;
-  setStatus('chatStatus', 'AI 正在输入…');
+  setStatus('chatStatus', '正在输入…');
   const bubbleDiv = document.createElement('div');
   bubbleDiv.className = 'msg assistant';
-  bubbleDiv.innerHTML = '<div class="who">AI</div><div class="bubble"></div>';
+  bubbleDiv.innerHTML = '<div class="who">…</div><div class="bubble"></div>';
   $('chatBox').appendChild(bubbleDiv);
   const bubble = bubbleDiv.querySelector('.bubble');
+  const who = bubbleDiv.querySelector('.who');
   const res = await fetch(API + '/api/chat/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
@@ -139,6 +180,7 @@ async function send() {
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = '';
+  let segAccum = '';
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -150,7 +192,9 @@ async function send() {
       if (!line.startsWith('data:')) continue;
       try {
         const ev = JSON.parse(line.slice(5).trim());
-        if (ev.type === 'token') bubble.textContent += ev.delta;
+        if (ev.type === 'meta' && ev.character) who.textContent = ev.character;
+        if (ev.type === 'token') { bubble.textContent += ev.delta; }
+        if (ev.type === 'segment') { segAccum += ev.text; bubble.textContent = segAccum; }
         if (ev.type === 'done') setStatus('chatStatus', '完成 ✓');
         if (ev.type === 'error') { setStatus('chatStatus', '错误: ' + ev.message); streaming = false; }
       } catch {}
