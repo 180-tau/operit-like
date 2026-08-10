@@ -28,8 +28,9 @@ export class CharacterController {
   }
 
   @Post(':id/export/tavern')
-  exportTavern(@Req() req: AuthedRequest, @Param('id') id: string) {
-    return this.characters.exportToTavern(this.characters.get(req.user.sub, id));
+  async exportTavern(@Req() req: AuthedRequest, @Param('id') id: string) {
+    const card = await this.characters.get(req.user.sub, id);
+    return this.characters.exportToTavern(card);
   }
 
   @Post(':id')
