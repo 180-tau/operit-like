@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+.dist/
+dist/
+build/
+*.tsbuildinfo
+apps/mobile/android/app/build/
+apps/mobile/ios/build/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Runtime
+data/
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Expo
+.expo/
+apps/mobile/.expo/
+expo-env.d.ts
+
+# Coverage
+coverage/
