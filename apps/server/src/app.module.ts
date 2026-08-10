@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { LlmModule } from './modules/llm/llm.module.js';
+import { ConversationModule } from './modules/conversation/conversation.module.js';
+import { ChatModule } from './modules/chat/chat.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
@@ -22,7 +24,9 @@ import { HealthController } from './modules/health/health.controller.js';
     }),
     AuthModule,
     LlmModule,
-    // ConversationModule · CharacterModule · AgentModule · ToolModule (per phase)
+    ConversationModule,
+    ChatModule,
+    // CharacterModule · AgentModule · ToolModule (per phase)
   ],
   controllers: [HealthController],
 })
