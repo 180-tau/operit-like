@@ -3,6 +3,7 @@ import { LLMMessage, StreamEvent } from '@operit/shared';
 import { ConversationService } from '../conversation/conversation.service.js';
 import { LlmService } from '../llm/llm.service.js';
 import { CharacterService } from '../character/character.service.js';
+import { MemoryService } from '../memory/memory.service.js';
 import { planSegments } from './segment-reply.util.js';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class ChatService {
     private readonly conversations: ConversationService,
     private readonly llm: LlmService,
     private readonly characters: CharacterService,
+    private readonly memories: MemoryService,
   ) {}
 
   async *streamReply(userId: string, conversationId: string, content: string): AsyncGenerator<StreamEvent> {
@@ -25,15 +27,31 @@ export class ChatService {
       content: m.content,
     }));
 
+    let cardId: string | null = null;
     let cardName = '';
+    let card: Awaited<ReturnType<CharacterService['get']>> | null = null;
     if (conv.characterCardId) {
       try {
-        const card = await this.characters.get(userId, conv.characterCardId);
+        card = await this.characters.get(userId, conv.characterCardId);
+        cardId = conv.characterCardId;
         cardName = card.name;
         messages.unshift({ role: 'system', content: this.characters.buildSystemPrompt(card) });
       } catch {
         this.logger.warn(`character card not found: ${conv.characterCardId}`);
       }
+    }
+
+    // Memory injection (user-global + character-scoped, latest 10)
+    try {
+      const mems = await this.memories.list(userId, cardId ?? undefined, 10);
+      if (mems.length) {
+        const memBlock = mems
+          .map((m) => `- [${m.type}] ${m.content}`)
+          .join('\n');
+        messages.unshift({ role: 'system', content: `Persistent memories you should remember:\n${memBlock}` });
+      }
+    } catch (err) {
+      this.logger.warn('memory injection failed', err);
     }
 
     yield { type: 'meta', conversationId, messageId: userMsg.id, model: 'default', character: cardName || undefined };
@@ -71,7 +89,6 @@ export class ChatService {
           }
         }
         replyContent = full.join('');
-        // Segmented delivery after full generation (human-like rhythm)
         const plan = planSegments(replyContent);
         for (let i = 0; i < plan.segments.length; i++) {
           yield { type: 'segment', index: i, text: plan.segments[i]!, delayMs: plan.delaysMs[i] ?? 500 };
@@ -92,6 +109,28 @@ export class ChatService {
           segments: plan.segments,
         });
       }
+
+      // Auto memory: extract user facts (scoped to character if bound)
+      try {
+        const facts = this.memories.extractFacts(content);
+        for (const fact of facts) {
+          await this.memories.create({
+            userId,
+            content: `用户提到：${fact}`,
+            type: 'fact',
+            characterCardId: cardId ?? undefined,
+          });
+        }
+      } catch (err) {
+        this.logger.warn('auto memory failed', err);
+      }
+
+      // Relationship state update
+      if (cardId && card) {
+        const mood = this.characters.detectUserMood(content);
+        await this.characters.updateRelationship(userId, cardId, { deltaIntimacy: 1, userMood: mood });
+      }
+
       await this.conversations.touch(conversationId);
     }
   }
