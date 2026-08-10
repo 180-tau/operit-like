@@ -71,12 +71,11 @@ export class ChatService {
           }
         }
         replyContent = full.join('');
-        // Segmented delivery after full generation
+        // Segmented delivery after full generation (human-like rhythm)
         const plan = planSegments(replyContent);
-        plan.segments.forEach((text, i) => {
-          const delay = plan.delaysMs[i] ?? 500;
-          this.emitSegment(yield, i, text, delay);
-        });
+        for (let i = 0; i < plan.segments.length; i++) {
+          yield { type: 'segment', index: i, text: plan.segments[i]!, delayMs: plan.delaysMs[i] ?? 500 };
+        }
         yield { type: 'typing', state: 'end' };
         yield { type: 'done', usage: undefined };
       }
@@ -95,9 +94,5 @@ export class ChatService {
       }
       await this.conversations.touch(conversationId);
     }
-  }
-
-  private async emitSegment(yieldFn: (ev: StreamEvent) => unknown, index: number, text: string, delayMs: number): Promise<void> {
-    await yieldFn({ type: 'segment', index, text, delayMs });
   }
 }
