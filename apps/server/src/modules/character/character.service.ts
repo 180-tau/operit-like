@@ -77,22 +77,24 @@ export class CharacterService {
   /** Import from Tavern/SillyTavern Character Card V2 JSON. */
   async importFromTavern(userId: string, json: TavernCardV2): Promise<CharacterCard> {
     const d = json.data;
-    const book = d.character_book?.entries?.map((e) => ({
-      keys: e.keys ?? [],
-      content: e.content ?? '',
-      constant: e.constant ?? false,
-    })) ?? [];
-    return this.create(userId, {
+    const input: CreateCharacterInput = {
+      userId,
       name: d.name,
-      description: d.description,
-      personality: d.personality,
-      scenario: d.scenario,
-      firstMes: d.first_mes,
-      mesExample: d.mes_example,
-      systemPrompt: d.system_prompt,
-      postHistoryInstructions: d.post_history_instructions,
-      characterBook: book,
-    });
+      description: d.description ?? '',
+      personality: d.personality ?? '',
+      scenario: d.scenario ?? '',
+      firstMes: d.first_mes ?? '',
+      mesExample: d.mes_example ?? '',
+      systemPrompt: d.system_prompt ?? '',
+      postHistoryInstructions: d.post_history_instructions ?? '',
+      characterBook:
+        d.character_book?.entries?.map((e) => ({
+          keys: e.keys ?? [],
+          content: e.content ?? '',
+          constant: e.constant ?? false,
+        })) ?? [],
+    };
+    return this.create(userId, input);
   }
 
   /** Export to Tavern/SillyTavern Character Card V2 JSON. */
