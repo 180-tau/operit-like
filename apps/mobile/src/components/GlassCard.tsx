@@ -1,48 +1,33 @@
 import React from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius } from '../theme';
+import { C, R } from '../theme';
 
-export default function GlassCard({
-  children,
-  style,
-  blur = 16,
-  strong = false,
-}: {
-  children: React.ReactNode;
+interface Props {
   style?: StyleProp<ViewStyle>;
-  blur?: number;
-  strong?: boolean;
-}) {
+  children?: React.ReactNode;
+  intense?: boolean;
+}
+
+export default function GlassCard({ style, children, intense }: Props) {
   return (
-    <View style={[styles.shadowWrap, style]}>
-      <BlurView intensity={blur} tint="light" style={styles.blur}>
-        <LinearGradient
-          colors={[strong ? colors.glassStrong : 'rgba(255,255,255,0.65)', 'rgba(255,255,255,0.42)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.grad}
-        >
-          <View style={[styles.border]}>{children}</View>
-        </LinearGradient>
-      </BlurView>
-    </View>
+    <BlurView intensity={intense ? 60 : 36} tint="light" style={[styles.card, style]}>
+      <View style={styles.inner}>{children}</View>
+    </BlurView>
   );
 }
 
 const styles = StyleSheet.create({
-  shadowWrap: {
-    borderRadius: radius.card,
-    ...({
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.4,
-      shadowRadius: 24,
-      elevation: 5,
-    } as object),
+  card: {
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.glassBorder,
+    overflow: 'hidden',
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 3,
   },
-  blur: { borderRadius: radius.card, overflow: 'hidden' },
-  grad: { borderRadius: radius.card },
-  border: { borderRadius: radius.card, borderWidth: 1, borderColor: colors.glassBorder },
+  inner: { padding: 16 },
 });
