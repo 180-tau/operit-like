@@ -16,11 +16,10 @@ export class PackageService {
   private readonly logger = new Logger(PackageService.name);
   private readonly packages = new Map<string, PackageInfo>();
 
-  constructor(private readonly tools: ToolsService) {
-    this.registerBuiltinPackages();
-  }
+  constructor(private readonly tools: ToolsService) {}
 
-  private registerBuiltinPackages(): void {
+  /** Register builtin packages after ToolsService has initialized its registry. */
+  onModuleInit(): void {
     const toolNames = this.tools.listTools().map((t) => t.name);
     this.packages.set('core', {
       name: 'core',
