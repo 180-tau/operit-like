@@ -25,8 +25,12 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
   const listRef = useRef<FlatList>(null);
 
   const load = async () => {
-    const list = await api.messages(cid);
-    setMsgs(list.filter((m) => m.role !== 'system').map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })));
+    try {
+      const list = await api.messages(cid);
+      setMsgs(list.filter((m) => m.role !== 'system').map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })));
+    } catch (e) {
+      setStatus('加载失败: ' + (e as Error).message);
+    }
   };
   useEffect(() => {
     load();
@@ -41,28 +45,35 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
     setInput('');
     append({ id: 'u' + Date.now(), role: 'user', content: text });
     setBusy(true);
-    setStatus('AI 正在输入…');
+    setStatus('AI 正在思考…');
     const aid = 'a' + Date.now();
     append({ id: aid, role: 'assistant', content: '' });
     let acc = '';
-    await api.streamChat(cid, text, (ev: StreamEvent) => {
-      if (ev.type === 'token') {
-        acc += ev.delta;
-        setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
-      } else if (ev.type === 'segment') {
-        acc = ev.text;
-        setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
-      } else if (ev.type === 'tool_call') {
-        setStatus('正在调用工具: ' + ev.name);
-      } else if (ev.type === 'done') {
-        setStatus('完成');
-      } else if (ev.type === 'error') {
-        setStatus('错误: ' + ev.message);
-      }
-    });
-    setBusy(false);
-    refreshMemories();
-    refreshConversations();
+    try {
+      await api.streamChat(cid, text, (ev: StreamEvent) => {
+        if (ev.type === 'token') {
+          acc += ev.delta;
+          setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
+        } else if (ev.type === 'segment') {
+          acc = ev.text;
+          setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
+        } else if (ev.type === 'typing') {
+          setStatus(ev.state === 'start' ? 'AI 正在输入…' : '完成');
+        } else if (ev.type === 'tool_call') {
+          setStatus('正在调用工具: ' + (ev.name || ''));
+        } else if (ev.type === 'done') {
+          setStatus('完成');
+        } else if (ev.type === 'error') {
+          setStatus('错误: ' + ev.message);
+        }
+      });
+    } catch (e) {
+      setStatus('错误: ' + (e as Error).message);
+    } finally {
+      setBusy(false);
+      refreshMemories();
+      refreshConversations();
+    }
   };
 
   return (
