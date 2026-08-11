@@ -4,22 +4,24 @@ import { ConversationService } from '../conversation/conversation.service.js';
 import { LlmService } from '../llm/llm.service.js';
 import { CharacterService } from '../character/character.service.js';
 import { MemoryService } from '../memory/memory.service.js';
+import { ToolsService } from '../tools/tools.service.js';
 import { planSegments } from './segment-reply.util.js';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
+  private readonly MAX_TOOL_ROUNDS = 3;
 
   constructor(
     private readonly conversations: ConversationService,
     private readonly llm: LlmService,
     private readonly characters: CharacterService,
     private readonly memories: MemoryService,
+    private readonly tools: ToolsService,
   ) {}
 
   async *streamReply(userId: string, conversationId: string, content: string): AsyncGenerator<StreamEvent> {
     const conv = await this.conversations.get(userId, conversationId);
-
     const userMsg = await this.conversations.saveMessage({ conversationId, role: 'user', content });
     const history = await this.conversations.listMessages(userId, conversationId);
     const messages: LLMMessage[] = history.slice(-20).map((m) => ({
@@ -41,14 +43,10 @@ export class ChatService {
       }
     }
 
-    // Memory injection (user-global + character-scoped, latest 10)
     try {
       const mems = await this.memories.list(userId, cardId ?? undefined, 10);
       if (mems.length) {
-        const memBlock = mems
-          .map((m) => `- [${m.type}] ${m.content}`)
-          .join('\n');
-        messages.unshift({ role: 'system', content: `Persistent memories you should remember:\n${memBlock}` });
+        messages.unshift({ role: 'system', content: `Persistent memories you should remember:\n${mems.map((m) => `- [${m.type}] ${m.content}`).join('\n')}` });
       }
     } catch (err) {
       this.logger.warn('memory injection failed', err);
@@ -77,18 +75,34 @@ export class ChatService {
         yield { type: 'done' };
       } else {
         yield { type: 'typing', state: 'start' };
-        const full: string[] = [];
-        for await (const ev of provider.streamChat({ messages, stream: true })) {
-          if (ev.type === 'delta') {
-            full.push(ev.text);
-            yield { type: 'token', delta: ev.text };
-          } else if (ev.type === 'reasoning') {
-            yield { type: 'reasoning', delta: ev.text };
-          } else if (ev.type === 'error') {
-            yield { type: 'error', message: ev.message };
+        const loopMessages: LLMMessage[] = [...messages];
+        let toolUsed = false;
+
+        for (let round = 0; round < this.MAX_TOOL_ROUNDS; round++) {
+          const resp = await provider.completeChat({ messages: loopMessages, tools: this.tools.toLLMDefs() });
+          if (resp.toolCalls && resp.toolCalls.length > 0) {
+            toolUsed = true;
+            yield { type: 'tool_call', id: '', name: `round ${round + 1}`, input: resp.toolCalls.map((t) => t.name) };
+            loopMessages.push({ role: 'assistant', content: '', toolCalls: resp.toolCalls.map((t) => ({ id: t.id, name: t.name, arguments: t.arguments })) });
+            for (const tc of resp.toolCalls) {
+              let parsed: Record<string, unknown> = {};
+              try {
+                parsed = JSON.parse(tc.arguments || '{}');
+              } catch {
+                parsed = {};
+              }
+              yield { type: 'tool_call', id: tc.id, name: tc.name, input: parsed };
+              const r = await this.tools.invoke(tc.name, parsed);
+              yield { type: 'tool_result', id: tc.id, output: r.data, error: r.error };
+              loopMessages.push({ role: 'tool', toolCallId: tc.id, content: JSON.stringify(r) });
+            }
+            continue;
           }
+          replyContent = resp.content ?? '';
+          break;
         }
-        replyContent = full.join('');
+        if (!replyContent) replyContent = toolUsed ? '（工具执行完成，未生成文本回复）' : '';
+
         const plan = planSegments(replyContent);
         for (let i = 0; i < plan.segments.length; i++) {
           yield { type: 'segment', index: i, text: plan.segments[i]!, delayMs: plan.delaysMs[i] ?? 500 };
@@ -102,35 +116,20 @@ export class ChatService {
     } finally {
       if (replyContent) {
         const plan = planSegments(replyContent);
-        await this.conversations.saveMessage({
-          conversationId,
-          role: 'assistant',
-          content: replyContent,
-          segments: plan.segments,
-        });
+        await this.conversations.saveMessage({ conversationId, role: 'assistant', content: replyContent, segments: plan.segments });
       }
-
-      // Auto memory: extract user facts (scoped to character if bound)
       try {
         const facts = this.memories.extractFacts(content);
         for (const fact of facts) {
-          await this.memories.create({
-            userId,
-            content: `用户提到：${fact}`,
-            type: 'fact',
-            characterCardId: cardId ?? undefined,
-          });
+          await this.memories.create({ userId, content: `用户提到：${fact}`, type: 'fact', characterCardId: cardId ?? undefined });
         }
       } catch (err) {
         this.logger.warn('auto memory failed', err);
       }
-
-      // Relationship state update
       if (cardId && card) {
         const mood = this.characters.detectUserMood(content);
         await this.characters.updateRelationship(userId, cardId, { deltaIntimacy: 1, userMood: mood });
       }
-
       await this.conversations.touch(conversationId);
     }
   }
