@@ -5,6 +5,10 @@
     "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F7F4EF",
+      "resizeMode": "contain"
+    },
     "android": {
       "package": "com.operitlike.app",
       "usesCleartextTraffic": true,
