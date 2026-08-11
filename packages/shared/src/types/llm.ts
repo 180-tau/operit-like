@@ -1,7 +1,7 @@
 // LLM provider abstraction — unified interface across providers.
 
 export type LLMProviderType =
-  | 'openai-compatible' // DeepSeek / Qwen / OpenRouter / local endpoints
+  | 'openai-compatible'
   | 'anthropic'
   | 'gemini';
 
@@ -16,7 +16,6 @@ export interface LLMConfig {
   temperature?: number;
   topP?: number;
   customHeaders?: Record<string, string>;
-  /** Feature flags. */
   supportsToolCall?: boolean;
   supportsVision?: boolean;
 }
@@ -31,7 +30,7 @@ export interface LLMMessage {
 export interface LLMToolCall {
   id: string;
   name: string;
-  arguments: string; // JSON string
+  arguments: string;
 }
 
 export interface LLMToolDef {
@@ -39,7 +38,7 @@ export interface LLMToolDef {
   function: {
     name: string;
     description: string;
-    parameters: unknown; // JSON Schema
+    parameters: unknown;
   };
 }
 
@@ -48,9 +47,7 @@ export interface LLMRequest {
   tools?: LLMToolDef[];
   temperature?: number;
   maxTokens?: number;
-  /** True to enable streaming (SSE). */
   stream?: boolean;
-  /** Signal to abort. */
   signal?: AbortSignal;
 }
 
@@ -62,7 +59,14 @@ export type LLMStreamEvent =
   | { type: 'done'; usage?: { inputTokens?: number; outputTokens?: number } }
   | { type: 'error'; message: string };
 
+export interface LLMCompleteResponse {
+  content: string;
+  toolCalls?: LLMToolCall[];
+  usage?: { inputTokens?: number; outputTokens?: number };
+}
+
 export interface LLMProvider {
   readonly type: LLMProviderType;
   streamChat(req: LLMRequest): AsyncGenerator<LLMStreamEvent>;
+  completeChat(req: LLMRequest): Promise<LLMCompleteResponse>;
 }
