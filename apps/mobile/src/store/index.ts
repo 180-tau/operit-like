@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, setToken, Conversation, Character, Memory, Message } from './rn-api-client';
+import { api, setToken, Conversation, Character, Memory, Message } from '../api';
 
 interface AppState {
   token: string | null;
