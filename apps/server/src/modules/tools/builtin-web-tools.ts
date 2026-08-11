@@ -57,7 +57,8 @@ const translateTool: Tool = {
   async execute(args) {
     const text = String(args.text ?? '');
     const to = String(args.to ?? 'en');
-    const from = String(args.from ?? 'auto');
+    let from = String(args.from ?? '');
+    if (!from) from = /[\u4e00-\u9fa5]/.test(text) ? 'zh' : 'en';
     try {
       const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=${encodeURIComponent(from)}|${encodeURIComponent(to)}`;
       const res = await fetch(url);
