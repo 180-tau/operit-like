@@ -50,31 +50,63 @@ export const api = {
   characters: () => request<Character[]>('/characters'),
   createCharacter: (data: Record<string, unknown>) => request<Character>('/characters', { method: 'POST', body: data }),
   memories: () => request<Memory[]>('/memories'),
-  // SSE stream helper
+  // SSE stream helper — robust: never throws, always terminates.
   streamChat: async (conversationId: string, content: string, onEvent: (ev: StreamEvent) => void) => {
-    const res = await fetch(`${API_BASE}/chat/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
-      body: JSON.stringify({ conversationId, content }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ conversationId, content }),
+      });
+    } catch (e) {
+      onEvent({ type: 'error', message: (e as Error).message ?? '网络请求失败' });
+      return;
+    }
+    if (!res.ok) {
+      onEvent({ type: 'error', message: `HTTP ${res.status}` });
+      return;
+    }
     const reader = res.body?.getReader();
-    if (!reader) return;
+    if (!reader) {
+      onEvent({ type: 'error', message: '当前环境不支持流式读取' });
+      return;
+    }
     const dec = new TextDecoder();
     let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const parts = buf.split('\n\n');
-      buf = parts.pop() ?? '';
-      for (const p of parts) {
-        const line = p.trim();
-        if (!line.startsWith('data:')) continue;
+    try {
+      while (true) {
+        let done = false;
+        let value: Uint8Array | undefined;
         try {
-          onEvent(JSON.parse(line.slice(5).trim()) as StreamEvent);
-        } catch {
-          // ignore
+          const r = await reader.read();
+          done = r.done;
+          value = r.value;
+        } catch (e) {
+          onEvent({ type: 'error', message: (e as Error).message ?? '流读取中断' });
+          break;
         }
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const p of parts) {
+          const line = p.trim();
+          if (!line.startsWith('data:')) continue;
+          try {
+            onEvent(JSON.parse(line.slice(5).trim()) as StreamEvent);
+          } catch {
+            // ignore malformed frame
+          }
+        }
+      }
+    } catch (e) {
+      onEvent({ type: 'error', message: (e as Error).message ?? '流解析失败' });
+    } finally {
+      try {
+        await reader.cancel();
+      } catch {
+        // ignore
       }
     }
   },
@@ -110,7 +142,8 @@ export type StreamEvent =
   | { type: 'meta'; character?: string }
   | { type: 'token'; delta: string }
   | { type: 'segment'; index: number; text: string }
-  | { type: 'tool_call'; name: string }
-  | { type: 'tool_result' }
-  | { type: 'done' }
+  | { type: 'typing'; state: 'start' | 'end' }
+  | { type: 'tool_call'; id?: string; name: string; input?: unknown }
+  | { type: 'tool_result'; id?: string; output?: unknown; error?: unknown }
+  | { type: 'done'; usage?: unknown }
   | { type: 'error'; message: string };
