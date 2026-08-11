@@ -2,21 +2,30 @@
   "expo": {
     "name": "Operit-like",
     "slug": "operit-like",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "android": {
       "package": "com.operitlike.app",
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
-        "backgroundColor": "#1a1a2e"
+        "backgroundColor": "#F7F4EF"
       }
     },
     "ios": {
       "bundleIdentifier": "com.operitlike.app",
       "supportsTablet": true
     },
-    "plugins": [],
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允许 Operit 保存生成的壁纸到相册",
+          "savePhotosPermission": "允许 Operit 保存生成的壁纸到相册",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ],
     "extra": {
       "apiUrl": "http://39.108.174.241:3000/api"
     }
