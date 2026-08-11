@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../store';
-import AuroraBackground from '../components/AuroraBackground';
 import GlassCard from '../components/GlassCard';
-import { colors, fonts, radius, spacing } from '../theme';
+import { C, F, R, SP } from '../theme';
 
 export default function LoginScreen() {
   const { login, register } = useApp();
@@ -26,91 +25,77 @@ export default function LoginScreen() {
   };
 
   return (
-    <AuroraBackground accent="mist">
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.container}>
-          <View style={styles.hero}>
-            <View style={styles.logo}>
-              <Ionicons name="sparkles" size={30} color="#fff" />
-            </View>
-            <Text style={styles.title}>Operit-like</Text>
-            <Text style={styles.subtitle}>一个安静的 AI 陪伴空间 · 治愈系毛玻璃</Text>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.inner}>
+        <View style={styles.logo}>
+          <View style={styles.logoBadge}>
+            <Ionicons name="sparkles" size={30} color="#fff" />
           </View>
-
-          <GlassCard strong style={styles.card}>
-            <Text style={styles.label}>用户名</Text>
-            <TextInput style={styles.input} placeholder="你的名字" placeholderTextColor={colors.inkFaint} value={username} onChangeText={setUsername} autoCapitalize="none" />
-            <Text style={[styles.label, { marginTop: 14 }]}>密码</Text>
-            <TextInput style={styles.input} placeholder="秘密口令" placeholderTextColor={colors.inkFaint} value={password} onChangeText={setPassword} secureTextEntry />
-
-            {err ? <Text style={styles.err}>{err}</Text> : null}
-
-            <TouchableOpacity style={styles.btnPrimary} onPress={() => run(() => login(username, password))} disabled={busy}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>进 入</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.btnGhost} onPress={() => run(() => register(username, password))} disabled={busy}>
-              <Text style={styles.btnGhostText}>没有账号？注册一个</Text>
-            </TouchableOpacity>
-          </GlassCard>
-
-          <Text style={styles.foot}>Design · 极简治愈 × Glassmorphism</Text>
         </View>
-      </KeyboardAvoidingView>
-    </AuroraBackground>
+        <Text style={styles.title}>Operit</Text>
+        <Text style={styles.subtitle}>治愈系 AI 伙伴 · 毛玻璃之境</Text>
+
+        <GlassCard style={styles.card} intense>
+          <TextInput style={styles.input} placeholder="用户名" placeholderTextColor={C.textFaint} value={username} onChangeText={setUsername} autoCapitalize="none" />
+          <TextInput style={styles.input} placeholder="密码" placeholderTextColor={C.textFaint} value={password} onChangeText={setPassword} secureTextEntry />
+          {err ? <Text style={styles.err}>{err}</Text> : null}
+          <TouchableOpacity style={styles.btnPrimary} onPress={() => run(() => login(username, password))} disabled={busy}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>登 录</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.btnGhost} onPress={() => run(() => register(username, password))} disabled={busy}>
+            <Text style={styles.btnGhostText}>注册新账号</Text>
+          </TouchableOpacity>
+        </GlassCard>
+
+        <Text style={styles.footnote}>大量留白 · 低饱和 · 玻璃质感</Text>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.page },
-  hero: { alignItems: 'center', marginBottom: 40 },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  container: { flex: 1 },
+  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: SP.page },
+  logo: { alignItems: 'center', marginBottom: 14 },
+  logoBadge: {
+    width: 68,
+    height: 68,
+    borderRadius: R.pill,
+    backgroundColor: C.blue,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.mist,
-    marginBottom: 18,
-    ...({
-      shadowColor: colors.mist,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.5,
-      shadowRadius: 18,
-      elevation: 8,
-    } as object),
+    shadowColor: C.blue,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  title: { fontFamily: fonts.serif, fontSize: 34, color: colors.ink, letterSpacing: 2, fontWeight: '600' },
-  subtitle: { fontSize: 13, color: colors.inkFaint, marginTop: 8, letterSpacing: 1 },
-  card: { padding: 26 },
-  label: { fontSize: 13, color: colors.inkSoft, marginBottom: 8, letterSpacing: 1 },
+  title: { fontFamily: F.serif, fontSize: 34, fontWeight: '700', color: C.text, textAlign: 'center' },
+  subtitle: { fontSize: F.sub, color: C.textSub, textAlign: 'center', marginTop: 6, marginBottom: 28 },
+  card: { padding: 0, marginHorizontal: 4 },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: radius.input,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: colors.ink,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: R.md,
+    padding: 14,
+    color: C.text,
+    fontSize: F.body,
+    marginBottom: 12,
   },
-  err: { color: '#C98A8A', fontSize: 13, marginTop: 12 },
+  err: { color: '#C47B7B', fontSize: F.small, marginBottom: 8 },
   btnPrimary: {
-    backgroundColor: colors.lilac,
-    borderRadius: radius.pill,
-    paddingVertical: 16,
+    backgroundColor: C.blue,
+    borderRadius: R.pill,
+    padding: 15,
     alignItems: 'center',
-    marginTop: 22,
-    ...({
-      shadowColor: colors.lilac,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.45,
-      shadowRadius: 14,
-      elevation: 6,
-    } as object),
+    marginTop: 4,
+    shadowColor: C.blue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  btnPrimaryText: { color: '#fff', fontSize: 17, fontWeight: '600', letterSpacing: 6 },
-  btnGhost: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
-  btnGhostText: { color: colors.inkFaint, fontSize: 14 },
-  foot: { textAlign: 'center', color: colors.inkFaint, fontSize: 11, marginTop: 28, letterSpacing: 1 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  btnGhost: { padding: 13, alignItems: 'center', marginTop: 2 },
+  btnGhostText: { color: C.textSub, fontSize: F.sub },
+  footnote: { color: C.textFaint, fontSize: F.small, textAlign: 'center', marginTop: 24 },
 });
