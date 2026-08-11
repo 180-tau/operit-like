@@ -8,6 +8,7 @@ import { ChatModule } from './modules/chat/chat.module.js';
 import { CharacterModule } from './modules/character/character.module.js';
 import { MemoryModule } from './modules/memory/memory.module.js';
 import { ToolsModule } from './modules/tools/tools.module.js';
+import { PackagesModule } from './modules/packages/package.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
@@ -32,6 +33,7 @@ import { HealthController } from './modules/health/health.controller.js';
     CharacterModule,
     MemoryModule,
     ToolsModule,
+    PackagesModule,
   ],
   controllers: [HealthController],
 })
