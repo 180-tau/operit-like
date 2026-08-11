@@ -55,7 +55,8 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
           acc += ev.delta;
           setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
         } else if (ev.type === 'segment') {
-          acc = ev.text;
+          // segments are independent chunks of the full reply -> append them
+          acc += ev.text;
           setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
         } else if (ev.type === 'typing') {
           setStatus(ev.state === 'start' ? 'AI 正在输入…' : '完成');
