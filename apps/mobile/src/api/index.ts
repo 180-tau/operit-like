@@ -50,66 +50,67 @@ export const api = {
   characters: () => request<Character[]>('/characters'),
   createCharacter: (data: Record<string, unknown>) => request<Character>('/characters', { method: 'POST', body: data }),
   memories: () => request<Memory[]>('/memories'),
-  // SSE stream helper — robust: never throws, always terminates.
-  streamChat: async (conversationId: string, content: string, onEvent: (ev: StreamEvent) => void) => {
-    let res: Response;
-    try {
-      res = await fetch(`${API_BASE}/chat/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
-        body: JSON.stringify({ conversationId, content }),
-      });
-    } catch (e) {
-      onEvent({ type: 'error', message: (e as Error).message ?? '网络请求失败' });
-      return;
-    }
-    if (!res.ok) {
-      onEvent({ type: 'error', message: `HTTP ${res.status}` });
-      return;
-    }
-    const reader = res.body?.getReader();
-    if (!reader) {
-      onEvent({ type: 'error', message: '当前环境不支持流式读取' });
-      return;
-    }
-    const dec = new TextDecoder();
-    let buf = '';
-    try {
-      while (true) {
-        let done = false;
-        let value: Uint8Array | undefined;
-        try {
-          const r = await reader.read();
-          done = r.done;
-          value = r.value;
-        } catch (e) {
-          onEvent({ type: 'error', message: (e as Error).message ?? '流读取中断' });
-          break;
-        }
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const parts = buf.split('\n\n');
-        buf = parts.pop() ?? '';
-        for (const p of parts) {
-          const line = p.trim();
-          if (!line.startsWith('data:')) continue;
-          try {
-            onEvent(JSON.parse(line.slice(5).trim()) as StreamEvent);
-          } catch {
-            // ignore malformed frame
-          }
-        }
-      }
-    } catch (e) {
-      onEvent({ type: 'error', message: (e as Error).message ?? '流解析失败' });
-    } finally {
+  // SSE stream helper — implemented with XMLHttpRequest because React Native's
+  // fetch does NOT expose res.body (no ReadableStream). XHR onprogress gives
+  // incremental chunks on Android (OKHttp) — the same approach as react-native-sse.
+  // Always resolves; never throws; emits error events instead.
+  streamChat: (conversationId: string, content: string, onEvent: (ev: StreamEvent) => void): Promise<void> =>
+    new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
       try {
-        await reader.cancel();
-      } catch {
-        // ignore
+        xhr.open('POST', `${API_BASE}/chat/stream`, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Authorization', `Bearer ${token ?? ''}`);
+        xhr.responseType = 'text';
+        xhr.timeout = 120000;
+        let buf = '';
+        let lastLen = 0;
+        const feed = (text: string) => {
+          buf += text;
+          const parts = buf.split('\n\n');
+          buf = parts.pop() ?? '';
+          for (const p of parts) {
+            const line = p.trim();
+            if (!line.startsWith('data:')) continue;
+            try {
+              onEvent(JSON.parse(line.slice(5).trim()) as StreamEvent);
+            } catch {
+              // ignore malformed frame
+            }
+          }
+        };
+        xhr.onprogress = () => {
+          const t = xhr.responseText || '';
+          if (t.length > lastLen) {
+            feed(t.slice(lastLen));
+            lastLen = t.length;
+          }
+        };
+        xhr.onload = () => {
+          const t = xhr.responseText || '';
+          if (t.length > lastLen) {
+            feed(t.slice(lastLen));
+            lastLen = t.length;
+          }
+          if (xhr.status >= 400) {
+            onEvent({ type: 'error', message: `HTTP ${xhr.status}` });
+          }
+          resolve();
+        };
+        xhr.onerror = () => {
+          onEvent({ type: 'error', message: '网络请求失败' });
+          resolve();
+        };
+        xhr.ontimeout = () => {
+          onEvent({ type: 'error', message: '请求超时，请重试' });
+          resolve();
+        };
+        xhr.send(JSON.stringify({ conversationId, content }));
+      } catch (e) {
+        onEvent({ type: 'error', message: (e as Error).message ?? '流式读取失败' });
+        resolve();
       }
-    }
-  },
+    }),
 };
 
 export interface Conversation {
