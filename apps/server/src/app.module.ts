@@ -7,6 +7,7 @@ import { ConversationModule } from './modules/conversation/conversation.module.j
 import { ChatModule } from './modules/chat/chat.module.js';
 import { CharacterModule } from './modules/character/character.module.js';
 import { MemoryModule } from './modules/memory/memory.module.js';
+import { ToolsModule } from './modules/tools/tools.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
@@ -30,7 +31,7 @@ import { HealthController } from './modules/health/health.controller.js';
     ChatModule,
     CharacterModule,
     MemoryModule,
-    // ToolModule · AgentModule (per phase)
+    ToolsModule,
   ],
   controllers: [HealthController],
 })
