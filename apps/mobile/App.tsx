@@ -2,21 +2,30 @@ import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, StyleSheet } from 'react-native';
+import { useFonts, NotoSerifSC_400Regular, NotoSerifSC_700Bold } from '@expo-google-fonts/noto-serif-sc';
 import { useApp } from './src/store';
 import LoginScreen from './src/screens/LoginScreen';
 import ConversationsScreen from './src/screens/ConversationsScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import CharactersScreen from './src/screens/CharactersScreen';
 import WallpaperScreen from './src/screens/WallpaperScreen';
-import Drawer, { Route } from './src/components/Drawer';
+import Drawer, { DrawerItem } from './src/components/Drawer';
 import GlowBg from './src/components/GlowBg';
+import { colors } from './src/theme';
+
+type Page = 'home' | 'characters' | 'wallpaper';
 
 export default function App() {
   const { token, username, logout } = useApp();
-  const [route, setRoute] = useState<Route>('home');
+  const [page, setPage] = useState<Page>('home');
   const [drawer, setDrawer] = useState(false);
   const [chatCid, setChatCid] = useState<string | null>(null);
   const [chatChar, setChatChar] = useState<string>('');
+
+  const [fontsLoaded] = useFonts({ NotoSerifSC_400Regular, NotoSerifSC_700Bold });
+  if (!fontsLoaded) {
+    return <View style={styles.root} />;
+  }
 
   if (!token) {
     return (
@@ -42,25 +51,32 @@ export default function App() {
     );
   }
 
+  const drawerItems: DrawerItem[] = [
+    { key: 'home', label: '会话', icon: 'chatbubbles-outline', color: colors.blue },
+    { key: 'characters', label: '角色卡', icon: 'heart-outline', color: colors.pink },
+    { key: 'wallpaper', label: '壁纸工坊', icon: 'image-outline', color: colors.sage },
+  ];
+
   return (
     <SafeAreaProvider>
       <View style={styles.root}>
         <GlowBg />
-        {route === 'home' && (
+        {page === 'home' && (
           <ConversationsScreen
-            onOpenDrawer={() => setDrawer(true)}
             onOpenChat={(cid, char) => { setChatCid(cid); setChatChar(char?.name ?? ''); }}
+            onMenu={() => setDrawer(true)}
           />
         )}
-        {route === 'characters' && <CharactersScreen onBack={() => setRoute('home')} />}
-        {route === 'wallpaper' && <WallpaperScreen onBack={() => setRoute('home')} />}
+        {page === 'characters' && <CharactersScreen onMenu={() => setDrawer(true)} />}
+        {page === 'wallpaper' && <WallpaperScreen onMenu={() => setDrawer(true)} />}
 
         <Drawer
           visible={drawer}
-          route={route}
           username={username ?? ''}
+          items={drawerItems}
+          active={page}
           onClose={() => setDrawer(false)}
-          onNavigate={setRoute}
+          onSelect={(k) => setPage(k as Page)}
           onLogout={() => { setDrawer(false); logout(); }}
         />
         <StatusBar style="dark" />
