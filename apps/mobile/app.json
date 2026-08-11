@@ -7,6 +7,7 @@
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.operitlike.app",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#1a1a2e"
       }
@@ -17,7 +18,7 @@
     },
     "plugins": [],
     "extra": {
-      "apiUrl": "http://localhost:3000/api"
+      "apiUrl": "http://39.108.174.241:3000/api"
     }
   }
 }
