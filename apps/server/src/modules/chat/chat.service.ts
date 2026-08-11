@@ -5,6 +5,7 @@ import { LlmService } from '../llm/llm.service.js';
 import { CharacterService } from '../character/character.service.js';
 import { MemoryService } from '../memory/memory.service.js';
 import { ToolsService } from '../tools/tools.service.js';
+import { PackageService } from '../packages/package.service.js';
 import { planSegments } from './segment-reply.util.js';
 
 @Injectable()
@@ -18,6 +19,7 @@ export class ChatService {
     private readonly characters: CharacterService,
     private readonly memories: MemoryService,
     private readonly tools: ToolsService,
+    private readonly packages: PackageService,
   ) {}
 
   async *streamReply(userId: string, conversationId: string, content: string): AsyncGenerator<StreamEvent> {
@@ -78,8 +80,14 @@ export class ChatService {
         const loopMessages: LLMMessage[] = [...messages];
         let toolUsed = false;
 
+        const enabledNames = this.packages.enabledToolNames();
+        const enabledDefs = this.tools
+          .listTools()
+          .filter((t) => enabledNames.includes(t.name))
+          .map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+
         for (let round = 0; round < this.MAX_TOOL_ROUNDS; round++) {
-          const resp = await provider.completeChat({ messages: loopMessages, tools: this.tools.toLLMDefs() });
+          const resp = await provider.completeChat({ messages: loopMessages, tools: enabledDefs });
           if (resp.toolCalls && resp.toolCalls.length > 0) {
             toolUsed = true;
             yield { type: 'tool_call', id: '', name: `round ${round + 1}`, input: resp.toolCalls.map((t) => t.name) };
@@ -92,7 +100,7 @@ export class ChatService {
                 parsed = {};
               }
               yield { type: 'tool_call', id: tc.id, name: tc.name, input: parsed };
-              const r = await this.tools.invoke(tc.name, parsed);
+              const r = await this.packages.invokeProxy(tc.name, parsed);
               yield { type: 'tool_result', id: tc.id, output: r.data, error: r.error };
               loopMessages.push({ role: 'tool', toolCallId: tc.id, content: JSON.stringify(r) });
             }
