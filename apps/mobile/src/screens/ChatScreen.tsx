@@ -3,7 +3,7 @@ import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Keyboard
 import { Ionicons } from '@expo/vector-icons';
 import { api, Message, StreamEvent } from '../api';
 import { useApp } from '../store';
-import { colors, fonts, radius, spacing } from '../theme';
+import { C, F, R, SP } from '../theme';
 
 interface Props {
   cid: string;
@@ -46,7 +46,7 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
     setInput('');
     append({ id: 'u' + Date.now(), role: 'user', content: text });
     setBusy(true);
-    setStatus('思考中…');
+    setStatus('AI 正在思考…');
     const aid = 'a' + Date.now();
     append({ id: aid, role: 'assistant', content: '' });
     let acc = '';
@@ -59,17 +59,17 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
           acc += ev.text;
           setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
         } else if (ev.type === 'typing') {
-          setStatus(ev.state === 'start' ? '输入中…' : '完成');
+          setStatus(ev.state === 'start' ? 'AI 正在输入…' : '完成');
         } else if (ev.type === 'tool_call') {
-          setStatus('调用工具: ' + (ev.name || ''));
+          setStatus('正在调用工具: ' + (ev.name || ''));
         } else if (ev.type === 'done') {
           setStatus('完成');
         } else if (ev.type === 'error') {
-          setStatus('出错: ' + ev.message);
+          setStatus('错误: ' + ev.message);
         }
       });
     } catch (e) {
-      setStatus('出错: ' + (e as Error).message);
+      setStatus('错误: ' + (e as Error).message);
     } finally {
       setBusy(false);
       refreshMemories();
@@ -78,104 +78,89 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.wrap}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtn} onPress={onBack}>
-            <Ionicons name="chevron-back" size={24} color={colors.ink} />
-          </TouchableOpacity>
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{charName || 'AI 对话'}</Text>
-            <Text style={styles.headerSub}>{busy ? status : '离线已就绪'}</Text>
-          </View>
-          <TouchableOpacity style={styles.headerBtn} onPress={load}>
-            <Ionicons name="refresh" size={19} color={colors.inkFaint} />
-          </TouchableOpacity>
-        </View>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={C.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{charName || 'AI 对话'}</Text>
+        <TouchableOpacity onPress={load} style={{ padding: 6 }}>
+          <Ionicons name="refresh" size={19} color={C.textSub} />
+        </TouchableOpacity>
+      </View>
 
-        <FlatList
-          ref={listRef}
-          style={styles.list}
-          data={msgs}
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          renderItem={({ item }) => (
-            <View style={[styles.row, item.role === 'user' ? styles.rowUser : styles.rowAI]}>
-              <View style={[styles.bubble, item.role === 'user' ? styles.bubbleUser : styles.bubbleAI]}>
-                <Text style={item.role === 'user' ? styles.textUser : styles.textAI}>{item.content || '…'}</Text>
-              </View>
+      <FlatList
+        ref={listRef}
+        style={{ flex: 1 }}
+        data={msgs}
+        keyExtractor={(m) => m.id}
+        contentContainerStyle={{ paddingHorizontal: SP.page, paddingVertical: 12 }}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        renderItem={({ item }) => (
+          <View style={[styles.msg, item.role === 'user' ? styles.msgUser : styles.msgAI]}>
+            <View style={[styles.bubble, item.role === 'user' ? styles.bubbleUser : styles.bubbleAI]}>
+              <Text style={item.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAI}>{item.content}</Text>
             </View>
-          )}
-        />
+          </View>
+        )}
+      />
 
-        <View style={styles.composer}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder={busy ? '安静等待…' : '说点什么…'}
-            placeholderTextColor={colors.inkFaint}
-            multiline
-            editable={!busy}
-          />
-          <TouchableOpacity style={[styles.sendBtn, busy && styles.sendBtnDisabled]} onPress={send} disabled={busy}>
-            <Ionicons name="send" size={19} color="#fff" />
-          </TouchableOpacity>
-        </View>
+      <Text style={styles.status}>{status}</Text>
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          placeholder={busy ? 'AI 思考中…' : '输入消息…'}
+          placeholderTextColor={C.textFaint}
+          multiline
+          editable={!busy}
+        />
+        <TouchableOpacity style={[styles.sendBtn, busy && styles.sendBtnDisabled]} onPress={send} disabled={busy}>
+          <Ionicons name="send" size={19} color="#fff" />
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  wrap: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 64, paddingHorizontal: spacing.page, paddingBottom: 14 },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  container: { flex: 1, paddingTop: 60 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SP.page, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: C.glassBorderSoft },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: R.pill,
+    backgroundColor: 'rgba(255,255,255,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: C.glassBorder,
   },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink, fontWeight: '600' },
-  headerSub: { fontSize: 11, color: colors.inkFaint, marginTop: 2 },
-  list: { flex: 1 },
-  listContent: { paddingHorizontal: spacing.page, paddingVertical: 10 },
-  row: { marginVertical: 5 },
-  rowUser: { alignItems: 'flex-end' },
-  rowAI: { alignItems: 'flex-start' },
-  bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, borderWidth: 1 },
-  bubbleUser: { backgroundColor: colors.mist, borderColor: 'rgba(255,255,255,0.6)', borderBottomRightRadius: 6 },
-  bubbleAI: { backgroundColor: 'rgba(255,255,255,0.68)', borderColor: 'rgba(255,255,255,0.85)', borderBottomLeftRadius: 6 },
-  textUser: { color: '#fff', fontSize: 15, lineHeight: 22 },
-  textAI: { color: colors.ink, fontSize: 15, lineHeight: 22 },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, paddingBottom: 24 },
+  headerTitle: { flex: 1, textAlign: 'center', fontFamily: F.serif, fontSize: 18, fontWeight: '700', color: C.text },
+  msg: { marginVertical: 5 },
+  msgUser: { alignItems: 'flex-end' },
+  msgAI: { alignItems: 'flex-start' },
+  bubble: { maxWidth: '78%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, fontSize: F.body, lineHeight: 22, borderWidth: 1 },
+  bubbleUser: { backgroundColor: C.bubbleUser, borderColor: 'rgba(166,193,206,0.4)', borderBottomRightRadius: 6 },
+  bubbleAI: { backgroundColor: C.bubbleAI, borderColor: C.glassBorderSoft, borderBottomLeftRadius: 6 },
+  bubbleTextUser: { color: C.text, fontSize: F.body, lineHeight: 22 },
+  bubbleTextAI: { color: C.text, fontSize: F.body, lineHeight: 22 },
+  status: { color: C.textSub, fontSize: F.small, paddingHorizontal: SP.page, minHeight: 18, textAlign: 'center' },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: C.glassBorderSoft },
   input: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: radius.input,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.ink,
-    maxHeight: 110,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: R.pill,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 12,
+    color: C.text,
+    fontSize: F.body,
+    maxHeight: 100,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+    borderColor: C.glassBorder,
   },
-  sendBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.lilac,
-    marginLeft: 10,
-  },
+  sendBtn: { backgroundColor: C.blue, borderRadius: R.pill, padding: 13, marginLeft: 8 },
   sendBtnDisabled: { opacity: 0.5 },
 });
