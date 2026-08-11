@@ -1,27 +1,45 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as MediaLibrary from 'expo-media-library';
+import React, { useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GlassCard from '../components/GlassCard';
-import { colors, fonts, radius, spacing, PaletteKey, paletteOrder, palettes } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { captureRef } from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
+import { C, F, R, SP } from '../theme';
 
-export default function WallpaperScreen({ onMenu }: { onMenu: () => void }) {
-  const [pick, setPick] = useState<PaletteKey>('mist');
+interface Props {
+  onBack: () => void;
+}
+
+const { width } = Dimensions.get('window');
+const PREVIEW_H = width * 1.6;
+
+const PALETTES: { key: string; name: string; colors: [string, string, string]; accent: string; quote: string }[] = [
+  { key: 'mist', name: '雾蓝晨光', colors: ['#EAF2F5', '#D3E4EA', '#B9D3DC'], accent: '#8FAFBE', quote: '清晨的雾，慢慢散开' },
+  { key: 'blossom', name: '樱粉午后', colors: ['#F9EFF0', '#F2DEE0', '#E8CDD0'], accent: '#D9ACB2', quote: '花瓣落下的声音' },
+  { key: 'sage', name: '鼠尾草', colors: ['#EEF3EC', '#DDE7DA', '#C9D8C4'], accent: '#A3B89D', quote: '风从林间穿过' },
+  { key: 'sand', name: '暖沙', colors: ['#F7F1E6', '#EFE3CF', '#E2D0B4'], accent: '#C9AE85', quote: '光落在窗台上' },
+  { key: 'lavender', name: '暮紫', colors: ['#F2F0F7', '#E4E0EF', '#D3CCE3'], accent: '#B3A7CE', quote: '黄昏时的梦' },
+];
+
+export default function WallpaperScreen({ onBack }: Props) {
+  const [palette, setPalette] = useState(PALETTES[0]);
   const [saving, setSaving] = useState(false);
-
-  const p = palettes[pick];
+  const [saved, setSaved] = useState(false);
+  const previewRef = useRef<View>(null);
 
   const save = async () => {
-    setSaving(true);
     try {
-      const perm = await MediaLibrary.requestPermissionsAsync(true);
-      if (!perm.granted) {
-        Alert.alert('需要权限', '请在系统设置中允许访问相册，才能保存壁纸');
-        setSaving(false);
+      setSaving(true);
+      setSaved(false);
+      const uri = await captureRef(previewRef, { format: 'png', quality: 1 });
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('需要相册权限', '请在系统设置中允许 Operit 保存壁纸到相册');
         return;
       }
-      Alert.alert('功能升级中', '高清壁纸渲染管线即将上线，先体验配色预览 ✨');
+      await MediaLibrary.saveToLibraryAsync(uri);
+      setSaved(true);
+      Alert.alert('已保存', '壁纸已保存到相册，可在系统设置中设为桌面壁纸');
     } catch (e) {
       Alert.alert('保存失败', (e as Error).message);
     } finally {
@@ -30,113 +48,100 @@ export default function WallpaperScreen({ onMenu }: { onMenu: () => void }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.menuBtn} onPress={onMenu}>
-          <Ionicons name="menu" size={24} color={colors.ink} />
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={C.text} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.title}>壁纸工坊</Text>
-          <Text style={styles.sub}>为你的屏幕调一杯治愈色</Text>
-        </View>
-        <View style={styles.menuBtn} />
+        <Text style={styles.pageTitle}>壁纸工坊</Text>
+        <TouchableOpacity style={{ width: 38 }} />
       </View>
 
-      <GlassCard style={styles.previewCard}>
-        <View style={styles.preview}>
-          <LinearGradient colors={[p.from, p.to]} style={StyleSheet.absoluteFill} />
-          <View style={[styles.previewGlow, { backgroundColor: p.glow }]} />
-          <View style={[styles.previewGlow2, { backgroundColor: '#ffffff' }]} />
-          <Text style={styles.previewText}>{p.name}</Text>
-          <Text style={styles.previewSub}>治愈系 · 极简</Text>
+      <View ref={previewRef} collapsable={false} style={[styles.preview, { backgroundColor: palette.colors[0] }]}>
+        <LinearGradient colors={palette.colors} style={StyleSheet.absoluteFill} />
+        <View style={[styles.halo, { top: -60, left: -50, backgroundColor: palette.accent, opacity: 0.35 }]} />
+        <View style={[styles.halo, { bottom: -80, right: -40, backgroundColor: '#FFFFFF', opacity: 0.4 }]} />
+        <View style={styles.quoteBox}>
+          <Text style={[styles.quote, { color: palette.accent }]}>{palette.quote}</Text>
+          <Text style={[styles.watermark, { color: palette.accent }]}>Operit · 治愈系</Text>
         </View>
-      </GlassCard>
-
-      <Text style={styles.sectionLabel}>选择配色</Text>
-      <View style={styles.swatches}>
-        {paletteOrder.map((k) => {
-          const it = palettes[k];
-          const active = k === pick;
-          return (
-            <TouchableOpacity key={k} style={styles.swatchWrap} onPress={() => setPick(k)}>
-              <LinearGradient colors={[it.from, it.to]} style={[styles.swatch, active && styles.swatchActive]}>
-                {active ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
-              </LinearGradient>
-              <Text style={[styles.swatchName, active && styles.swatchNameActive]}>{it.name}</Text>
-            </TouchableOpacity>
-          );
-        })}
       </View>
 
-      <GlassCard style={styles.tipCard}>
-        <View style={styles.tipRow}>
-          <Ionicons name="sparkles-outline" size={18} color={colors.lilac} />
-          <View style={styles.tipBody}>
-            <Text style={styles.tipTitle}>动态壁纸（规划中）</Text>
-            <Text style={styles.tipText}>后续将支持：呼吸光晕动画、跟随时间的晨昏渐变、手机上的治愈系动态壁纸。</Text>
-          </View>
-        </View>
-      </GlassCard>
+      <Text style={styles.sectionTitle}>选择配色</Text>
+      <View style={styles.paletteRow}>
+        {PALETTES.map((p) => (
+          <TouchableOpacity key={p.key} style={[styles.swatch, palette.key === p.key && styles.swatchActive]} onPress={() => { setPalette(p); setSaved(false); }}>
+            <LinearGradient colors={p.colors.slice(0, 2) as [string, string]} style={styles.swatchInner} />
+            <Text style={[styles.swatchName, palette.key === p.key && { color: C.text, fontWeight: '700' }]}>{p.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={save} disabled={saving}>
-        <Ionicons name="download-outline" size={19} color="#fff" />
-        <Text style={styles.saveBtnText}>{saving ? '保存中…' : '保存到相册'}</Text>
+      <TouchableOpacity style={[styles.saveBtn, { backgroundColor: palette.accent }, saved && styles.saveBtnDone]} onPress={save} disabled={saving}>
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name={saved ? 'checkmark-circle' : 'download'} size={20} color="#fff" />
+            <Text style={styles.saveBtnText}>{saved ? '已保存到相册' : '保存到相册'}</Text>
+          </>
+        )}
       </TouchableOpacity>
+      <Text style={styles.tip}>保存后可在系统设置 → 壁纸中设为桌面壁纸（动态壁纸开发中）</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingTop: 64, paddingHorizontal: spacing.page, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  menuBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  container: { flex: 1, paddingTop: 60, paddingHorizontal: SP.page },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: R.pill,
+    backgroundColor: 'rgba(255,255,255,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: C.glassBorder,
+    marginRight: 10,
   },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  title: { fontFamily: fonts.serif, fontSize: 26, color: colors.ink, fontWeight: '600', letterSpacing: 2 },
-  sub: { fontSize: 12, color: colors.inkFaint, marginTop: 3 },
-  previewCard: { padding: 10, marginBottom: 22 },
-  preview: { height: 340, borderRadius: radius.card - 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  previewGlow: { position: 'absolute', width: 240, height: 240, borderRadius: 120, top: -40, right: -40, opacity: 0.6 },
-  previewGlow2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, bottom: -50, left: -30, opacity: 0.35 },
-  previewText: { fontFamily: fonts.serif, fontSize: 28, color: '#fff', letterSpacing: 4, fontWeight: '600' },
-  previewSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 8, letterSpacing: 3 },
-  sectionLabel: { fontSize: 13, color: colors.inkSoft, marginBottom: 12, letterSpacing: 1 },
-  swatches: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 22 },
-  swatchWrap: { alignItems: 'center' },
-  swatch: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
+  pageTitle: { flex: 1, fontFamily: F.serif, fontSize: 22, fontWeight: '700', color: C.text },
+  preview: {
+    width: '100%',
+    height: PREVIEW_H,
+    borderRadius: R.lg,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 4,
   },
-  swatchActive: { borderColor: colors.ink, borderWidth: 2.5 },
-  swatchName: { fontSize: 11, color: colors.inkFaint, marginTop: 6 },
-  swatchNameActive: { color: colors.ink, fontWeight: '600' },
-  tipCard: { padding: 16, marginBottom: 20 },
-  tipRow: { flexDirection: 'row' },
-  tipBody: { flex: 1, marginLeft: 12 },
-  tipTitle: { fontFamily: fonts.serif, fontSize: 15, color: colors.ink, fontWeight: '600' },
-  tipText: { fontSize: 12, color: colors.inkSoft, marginTop: 5, lineHeight: 18 },
+  halo: { position: 'absolute', width: 200, height: 200, borderRadius: 999 },
+  quoteBox: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  quote: { fontFamily: F.serif, fontSize: 24, fontWeight: '600', textAlign: 'center', lineHeight: 34 },
+  watermark: { fontSize: F.small, marginTop: 14, opacity: 0.7 },
+  sectionTitle: { color: C.textSub, fontSize: F.sub, fontWeight: '600', marginBottom: 10 },
+  paletteRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
+  swatch: { alignItems: 'center', width: '18%' },
+  swatchInner: { width: 52, height: 52, borderRadius: R.pill, borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)' },
+  swatchActive: { transform: [{ scale: 1.08 }] },
+  swatchName: { fontSize: 10, color: C.textSub, marginTop: 6 },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.sage,
-    borderRadius: radius.pill,
-    paddingVertical: 16,
+    borderRadius: R.pill,
+    padding: 15,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnDone: { opacity: 0.8 },
   saveBtnText: { color: '#fff', fontWeight: '600', marginLeft: 8 },
+  tip: { color: C.textFaint, fontSize: F.small, textAlign: 'center', marginTop: 12 },
 });
