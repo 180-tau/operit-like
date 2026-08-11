@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { Tool } from './tool.interface.js';
+import { webTools } from './builtin-web-tools.js';
 
 const execAsync = promisify(exec);
 const SANDBOX_DIR = process.env.TOOL_SANDBOX_DIR ?? '/tmp/operit-sandbox';
@@ -14,7 +15,7 @@ export async function ensureSandbox(): Promise<string> {
 
 export async function builtinTools(): Promise<Tool[]> {
   await ensureSandbox();
-  return [timeTool, httpGetTool, fileReadTool, fileWriteTool, codeExecTool];
+  return [timeTool, httpGetTool, fileReadTool, fileWriteTool, codeExecTool, ...webTools()];
 }
 
 const timeTool: Tool = {
