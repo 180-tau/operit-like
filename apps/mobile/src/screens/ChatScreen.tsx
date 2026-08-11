@@ -3,6 +3,7 @@ import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Keyboard
 import { Ionicons } from '@expo/vector-icons';
 import { api, Message, StreamEvent } from '../api';
 import { useApp } from '../store';
+import { colors, fonts, radius, spacing } from '../theme';
 
 interface Props {
   cid: string;
@@ -17,7 +18,7 @@ interface ViewMsg {
 }
 
 export default function ChatScreen({ cid, charName, onBack }: Props) {
-  const { memories, refreshMemories, refreshConversations } = useApp();
+  const { refreshMemories, refreshConversations } = useApp();
   const [msgs, setMsgs] = useState<ViewMsg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,7 +46,7 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
     setInput('');
     append({ id: 'u' + Date.now(), role: 'user', content: text });
     setBusy(true);
-    setStatus('AI 正在思考…');
+    setStatus('思考中…');
     const aid = 'a' + Date.now();
     append({ id: aid, role: 'assistant', content: '' });
     let acc = '';
@@ -55,21 +56,20 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
           acc += ev.delta;
           setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
         } else if (ev.type === 'segment') {
-          // segments are independent chunks of the full reply -> append them
           acc += ev.text;
           setMsgs((p) => p.map((m) => (m.id === aid ? { ...m, content: acc } : m)));
         } else if (ev.type === 'typing') {
-          setStatus(ev.state === 'start' ? 'AI 正在输入…' : '完成');
+          setStatus(ev.state === 'start' ? '输入中…' : '完成');
         } else if (ev.type === 'tool_call') {
-          setStatus('正在调用工具: ' + (ev.name || ''));
+          setStatus('调用工具: ' + (ev.name || ''));
         } else if (ev.type === 'done') {
           setStatus('完成');
         } else if (ev.type === 'error') {
-          setStatus('错误: ' + ev.message);
+          setStatus('出错: ' + ev.message);
         }
       });
     } catch (e) {
-      setStatus('错误: ' + (e as Error).message);
+      setStatus('出错: ' + (e as Error).message);
     } finally {
       setBusy(false);
       refreshMemories();
@@ -78,62 +78,104 @@ export default function ChatScreen({ cid, charName, onBack }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={{ padding: 4 }}>
-          <Ionicons name="chevron-back" size={26} color="#eee" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{charName || 'AI 对话'}</Text>
-        <TouchableOpacity onPress={load} style={{ padding: 4 }}>
-          <Ionicons name="refresh" size={20} color="#7dd3fc" />
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        ref={listRef}
-        style={{ flex: 1 }}
-        data={msgs}
-        keyExtractor={(m) => m.id}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-        renderItem={({ item }) => (
-          <View style={[styles.msg, item.role === 'user' ? styles.msgUser : styles.msgAI]}>
-            <Text style={[styles.bubble, item.role === 'user' ? styles.bubbleUser : styles.bubbleAI]}>{item.content}</Text>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.wrap}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerBtn} onPress={onBack}>
+            <Ionicons name="chevron-back" size={24} color={colors.ink} />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>{charName || 'AI 对话'}</Text>
+            <Text style={styles.headerSub}>{busy ? status : '离线已就绪'}</Text>
           </View>
-        )}
-      />
+          <TouchableOpacity style={styles.headerBtn} onPress={load}>
+            <Ionicons name="refresh" size={19} color={colors.inkFaint} />
+          </TouchableOpacity>
+        </View>
 
-      <Text style={styles.status}>{status}</Text>
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder={busy ? 'AI 思考中…' : '输入消息…'}
-          placeholderTextColor="#8b8bb3"
-          multiline
-          editable={!busy}
+        <FlatList
+          ref={listRef}
+          style={styles.list}
+          data={msgs}
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={styles.listContent}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          renderItem={({ item }) => (
+            <View style={[styles.row, item.role === 'user' ? styles.rowUser : styles.rowAI]}>
+              <View style={[styles.bubble, item.role === 'user' ? styles.bubbleUser : styles.bubbleAI]}>
+                <Text style={item.role === 'user' ? styles.textUser : styles.textAI}>{item.content || '…'}</Text>
+              </View>
+            </View>
+          )}
         />
-        <TouchableOpacity style={[styles.sendBtn, busy && styles.sendBtnDisabled]} onPress={send} disabled={busy}>
-          <Ionicons name="send" size={20} color="#fff" />
-        </TouchableOpacity>
+
+        <View style={styles.composer}>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder={busy ? '安静等待…' : '说点什么…'}
+            placeholderTextColor={colors.inkFaint}
+            multiline
+            editable={!busy}
+          />
+          <TouchableOpacity style={[styles.sendBtn, busy && styles.sendBtnDisabled]} onPress={send} disabled={busy}>
+            <Ionicons name="send" size={19} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e', paddingTop: 60 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, borderBottomColor: '#2a2a4e', borderBottomWidth: 1 },
-  headerTitle: { flex: 1, textAlign: 'center', color: '#eee', fontSize: 17, fontWeight: '600' },
-  msg: { paddingHorizontal: 14, marginVertical: 4 },
-  msgUser: { alignItems: 'flex-end' },
-  msgAI: { alignItems: 'flex-start' },
-  bubble: { maxWidth: '82%', padding: 12, borderRadius: 14, fontSize: 15, lineHeight: 21 },
-  bubbleUser: { backgroundColor: '#4f46e5', color: '#fff' },
-  bubbleAI: { backgroundColor: '#2d2d55', color: '#eee' },
-  status: { color: '#7dd3fc', fontSize: 12, paddingHorizontal: 14, minHeight: 18 },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', padding: 10, borderTopColor: '#2a2a4e', borderTopWidth: 1 },
-  input: { flex: 1, backgroundColor: '#232343', borderRadius: 14, padding: 12, color: '#eee', fontSize: 15, maxHeight: 100 },
-  sendBtn: { backgroundColor: '#4f46e5', borderRadius: 14, padding: 14, marginLeft: 8 },
+  flex: { flex: 1, backgroundColor: colors.bg },
+  wrap: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 64, paddingHorizontal: spacing.page, paddingBottom: 14 },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+  },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink, fontWeight: '600' },
+  headerSub: { fontSize: 11, color: colors.inkFaint, marginTop: 2 },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: spacing.page, paddingVertical: 10 },
+  row: { marginVertical: 5 },
+  rowUser: { alignItems: 'flex-end' },
+  rowAI: { alignItems: 'flex-start' },
+  bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, borderWidth: 1 },
+  bubbleUser: { backgroundColor: colors.mist, borderColor: 'rgba(255,255,255,0.6)', borderBottomRightRadius: 6 },
+  bubbleAI: { backgroundColor: 'rgba(255,255,255,0.68)', borderColor: 'rgba(255,255,255,0.85)', borderBottomLeftRadius: 6 },
+  textUser: { color: '#fff', fontSize: 15, lineHeight: 22 },
+  textAI: { color: colors.ink, fontSize: 15, lineHeight: 22 },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, paddingBottom: 24 },
+  input: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: radius.input,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.ink,
+    maxHeight: 110,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  sendBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.lilac,
+    marginLeft: 10,
+  },
   sendBtnDisabled: { opacity: 0.5 },
 });
