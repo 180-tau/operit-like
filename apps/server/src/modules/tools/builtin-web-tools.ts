@@ -33,9 +33,9 @@ const webSearchTool: Tool = {
         const hrefMatch = chunk.match(/href="([^"]+)"/);
         const titleMatch = chunk.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
         const pMatch = chunk.match(/<p[^>]*>([\s\S]*?)<\/p>/);
-        const title = titleMatch ? stripHtml(titleMatch[1]) : '';
+        const title = titleMatch && titleMatch[1] ? stripHtml(titleMatch[1]) : '';
         if (!title) continue;
-        results.push({ title, url: hrefMatch?.[1] ?? '', snippet: pMatch ? stripHtml(pMatch[1]).slice(0, 200) : '' });
+        results.push({ title, url: hrefMatch?.[1] ?? '', snippet: pMatch && pMatch[1] ? stripHtml(pMatch[1]).slice(0, 200) : '' });
       }
       if (!results.length) return { ok: true, data: { note: 'no structured results parsed', raw: html.slice(0, 800) } };
       return { ok: true, data: results };
